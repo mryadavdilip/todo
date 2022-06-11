@@ -36,7 +36,7 @@ class _SignupPageState extends State<SignupPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Signup',
+                'Sign Up',
                 style: GoogleFonts.roboto(
                   fontSize: 26.sp,
                   color: Colors.blueGrey,
@@ -84,7 +84,7 @@ class _SignupPageState extends State<SignupPage> {
                         _passwordEditingController.text);
                   }
                 },
-                title: 'Signup',
+                title: 'Sign up',
               ),
               SizedBox(height: 20),
               Row(

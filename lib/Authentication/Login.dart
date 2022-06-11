@@ -8,6 +8,7 @@ import 'package:todo/Authentication/Signup.dart';
 import 'package:todo/CustomWidgets/CustomFormButton.dart';
 import 'package:todo/CustomWidgets/CustomFormTextField.dart';
 import 'package:todo/CustomWidgets/CustomToast.dart';
+import 'package:todo/NavigationPage.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -146,10 +147,16 @@ class _LoginPageState extends State<LoginPage> {
     _auth
         .signInWithEmailAndPassword(email: email, password: password)
         .then((credential) {
-      _firestore.collection('users').doc(email).set({
+      _firestore.collection('users').doc(email).update({
         'lastLogin':
             "${DateTime.now().year}/${DateTime.now().month}/${DateTime.now().day}, ${DateTime.now().hour}:${DateTime.now().minute}:${DateTime.now().second}"
       });
+      Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => NavigationPage(),
+          ),
+          (route) => false);
     }).onError((error, stackTrace) {
       toast(context, error.toString());
     });

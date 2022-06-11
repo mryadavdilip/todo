@@ -3,12 +3,18 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class CustomFormButton extends StatefulWidget {
-  final String title;
   final GestureTapCallback onTap;
+  final String title;
+  final double height;
+  final double width;
+  final bool outlined;
   const CustomFormButton({
     Key? key,
-    this.title = '',
     required this.onTap,
+    this.title = '',
+    this.height = 50,
+    this.width = 250,
+    this.outlined = false,
   }) : super(key: key);
 
   @override
@@ -39,11 +45,20 @@ class _CustomFormButtonState extends State<CustomFormButton> {
         },
         onTap: widget.onTap,
         child: Container(
-          height: 50.h,
-          width: 250.w,
+          height: widget.height.h,
+          width: widget.width.w,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: Colors.blueGrey[400],
+            color: widget.outlined ? Colors.white : Colors.blueGrey[400],
+            border: widget.outlined
+                ? Border.all(
+                    width: 3.sp,
+                    color: Colors.blueGrey.shade400,
+                  )
+                : Border.all(
+                    width: 0,
+                    color: Colors.transparent,
+                  ),
             borderRadius: BorderRadius.circular(10.r),
             boxShadow: [
               BoxShadow(
@@ -57,7 +72,7 @@ class _CustomFormButtonState extends State<CustomFormButton> {
             widget.title,
             style: GoogleFonts.roboto(
               fontSize: 26.sp,
-              color: Colors.white,
+              color: widget.outlined ? Colors.blueGrey : Colors.white,
               fontWeight: FontWeight.w600,
             ),
           ),
