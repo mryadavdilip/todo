@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -20,6 +21,8 @@ class _HomePageState extends State<HomePage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   List<int> selectedItems = [];
+  List<String> selectedDocIds = [];
+
   int snapshotSize = 0;
 
   TextEditingController _titleEditingController = TextEditingController();
@@ -188,20 +191,23 @@ class _HomePageState extends State<HomePage> {
                                                 .collection('users')
                                                 .doc(_auth.currentUser!.email)
                                                 .collection('tasks')
-                                                .doc()
-                                                .set({
+                                                .doc(selectedDocIds[0])
+                                                .update({
                                               'title':
                                                   _titleEditingController.text,
                                               'description':
                                                   _descriptionEditingController
                                                       .text,
-                                              'order': snapshotSize++,
                                             }).then((value) {
                                               Navigator.pop(context);
                                               _titleEditingController.text = '';
                                               _descriptionEditingController
                                                   .text = '';
-                                              toast(context, 'task added');
+                                              setState(() {
+                                                selectedItems.clear();
+                                                selectedDocIds.clear();
+                                              });
+                                              toast(context, 'task edited');
                                             }).onError((error, stackTrace) {
                                               toast(context, error.toString());
                                             });
@@ -230,9 +236,106 @@ class _HomePageState extends State<HomePage> {
             SizedBox(width: 30.w),
             Visibility(
               visible: selectedItems.isNotEmpty,
-              child: Icon(
-                Icons.delete,
-                size: 25.sp,
+              child: GestureDetector(
+                onTap: () {
+                  showDialog(
+                      context: context,
+                      barrierColor: Colors.black26,
+                      barrierDismissible: false,
+                      builder: (context) {
+                        return Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 50.w, vertical: 320.h),
+                          child: Scaffold(
+                            resizeToAvoidBottomInset: false,
+                            backgroundColor: Colors.white,
+                            body: SizedBox(
+                              width: 275.w,
+                              child: Column(
+                                children: [
+                                  SizedBox(height: 10.h),
+                                  Text(
+                                    'Confirm delete',
+                                    style: GoogleFonts.roboto(
+                                      fontSize: 18.sp,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.blueGrey,
+                                    ),
+                                  ),
+                                  Container(
+                                    height: 1.sp,
+                                    width: 100.w,
+                                    color: Colors.blueGrey,
+                                  ),
+                                  Spacer(),
+                                  Padding(
+                                    padding:
+                                        EdgeInsets.symmetric(horizontal: 15.w),
+                                    child: Row(
+                                      children: [
+                                        CustomFormButton(
+                                          onTap: () {
+                                            Navigator.pop(context);
+                                          },
+                                          height: 50,
+                                          width: 120,
+                                          title: 'Cancel',
+                                          outlined: true,
+                                        ),
+                                        Spacer(),
+                                        CustomFormButton(
+                                          onTap: () {
+                                            CollectionReference doc = _firestore
+                                                .collection('users')
+                                                .doc(_auth.currentUser!.email)
+                                                .collection('tasks');
+                                            try {
+                                              for (String id
+                                                  in selectedDocIds) {
+                                                doc
+                                                    .doc(id)
+                                                    .delete()
+                                                    .then((value) {
+                                                  setState(() {
+                                                    selectedItems.clear();
+                                                    selectedDocIds.clear();
+                                                  });
+                                                  sortOrder();
+                                                  toast(
+                                                      context, 'task deleted');
+                                                }).onError((error, stackTrace) {
+                                                  toast(context,
+                                                      error.toString());
+                                                });
+                                              }
+                                              Navigator.pop(context);
+                                            } catch (e) {
+                                              toast(context, e.toString());
+                                              if (kDebugMode) {
+                                                print(e);
+                                              }
+                                            }
+                                          },
+                                          height: 50,
+                                          width: 120,
+                                          title: 'Delete',
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(height: 10.h),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      });
+                },
+                behavior: HitTestBehavior.translucent,
+                child: Icon(
+                  Icons.delete,
+                  size: 25.sp,
+                ),
               ),
             ),
             SizedBox(width: 20.w),
@@ -375,7 +478,8 @@ class _HomePageState extends State<HomePage> {
                           itemExtent: 80.h,
                           addSemanticIndexes: true,
                           itemBuilder: (context, index) {
-                            var task = snapshot.data!.docs[index];
+                            QueryDocumentSnapshot _document =
+                                snapshot.data!.docs[index];
                             snapshotSize = snapshot.data!.size;
                             return InkWell(
                               onTap: () {
@@ -383,16 +487,29 @@ class _HomePageState extends State<HomePage> {
                                   setState(() {
                                     if (selectedItems.contains(index)) {
                                       selectedItems.remove(index);
+                                      selectedDocIds.remove(_document.id);
                                     } else {
                                       selectedItems.add(index);
+                                      selectedDocIds.add(_document.id);
                                     }
                                   });
+
+                                  if (kDebugMode) {
+                                    print(
+                                        'selectedItems: $selectedItems, selectedDocIds: $selectedDocIds');
+                                  }
                                 }
                               },
                               onLongPress: () {
                                 setState(() {
                                   selectedItems.add(index);
+                                  selectedDocIds.add(_document.id);
                                 });
+
+                                if (kDebugMode) {
+                                  print(
+                                      'selectedItems: $selectedItems, selectedDocIds: $selectedDocIds');
+                                }
                               },
                               child: Stack(
                                 fit: StackFit.expand,
@@ -425,7 +542,7 @@ class _HomePageState extends State<HomePage> {
                                             MainAxisAlignment.center,
                                         children: [
                                           Text(
-                                            '${task['title']}',
+                                            '${_document['title']}',
                                             style: GoogleFonts.roboto(
                                               fontSize: 22.sp,
                                               fontWeight: FontWeight.w600,
@@ -433,7 +550,7 @@ class _HomePageState extends State<HomePage> {
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                           Text(
-                                            '${task['description']}',
+                                            '${_document['description']}',
                                             style: GoogleFonts.roboto(
                                               fontSize: 18.sp,
                                               fontWeight: FontWeight.w400,
@@ -480,5 +597,35 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+
+  Future sortOrder() async {
+    int i = 0;
+    List orderList = [];
+    await _firestore
+        .collection('users')
+        .doc(_auth.currentUser!.email)
+        .collection('tasks')
+        .orderBy('order')
+        .get()
+        .then((value) {
+      for (var element in value.docs) {
+        orderList.add(element.id);
+      }
+    });
+    if (kDebugMode) {
+      print('orderList $orderList');
+    }
+    for (var element in orderList) {
+      await _firestore
+          .collection('users')
+          .doc(_auth.currentUser!.email)
+          .collection('tasks')
+          .doc(element)
+          .update({
+        'order': i,
+      });
+      i++;
+    }
   }
 }
