@@ -64,9 +64,6 @@ android {
 
             minifyEnabled true
             shrinkResources true
-            useProguard true
-
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 }
