@@ -28,6 +28,9 @@ class _HomePageState extends State<HomePage> {
   FocusNode _searchFocusNode = FocusNode();
 
   ScrollController _taskListScrollController = ScrollController();
+  int scrollIndex = 0;
+  List<String> titleList = [];
+  List<int> searchTitleIndexList = [];
 
   List<int> selectedItems = [];
   List<String> selectedDocIds = [];
@@ -35,7 +38,16 @@ class _HomePageState extends State<HomePage> {
   int snapshotSize = 0;
 
   @override
+  void initState() {
+    loadTitles();
+    super.initState();
+  }
+
+  @override
   void dispose() {
+    _titleEditingController.dispose();
+    _descriptionEditingController.dispose();
+    _searchEditingController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
   }
@@ -48,6 +60,11 @@ class _HomePageState extends State<HomePage> {
           setState(() {
             selectedItems.clear();
           });
+          return false;
+        } else if (titleList.isNotEmpty || searchTitleIndexList.isNotEmpty) {
+          titleList.clear();
+          searchTitleIndexList.clear();
+          scrollIndex = 0;
           return false;
         } else if (_searchFocusNode.hasFocus) {
           _searchFocusNode.unfocus();
@@ -249,7 +266,7 @@ class _HomePageState extends State<HomePage> {
                                                           'description':
                                                               _descriptionEditingController
                                                                   .text,
-                                                        }).then((value) {
+                                                        }).then((value) async {
                                                           Navigator.pop(
                                                               context);
                                                           _titleEditingController
@@ -262,6 +279,7 @@ class _HomePageState extends State<HomePage> {
                                                             selectedDocIds
                                                                 .clear();
                                                           });
+                                                          loadTitles();
                                                           toast(context,
                                                               'task edited');
                                                         }).onError((error,
@@ -360,7 +378,8 @@ class _HomePageState extends State<HomePage> {
                                                         doc
                                                             .doc(id)
                                                             .delete()
-                                                            .then((value) {
+                                                            .then(
+                                                                (value) async {
                                                           setState(() {
                                                             selectedItems
                                                                 .clear();
@@ -368,6 +387,11 @@ class _HomePageState extends State<HomePage> {
                                                                 .clear();
                                                           });
                                                           sortOrder();
+                                                          await loadTitles();
+                                                          setState(() {
+                                                            searchTitleIndexList
+                                                                .clear();
+                                                          });
                                                           toast(context,
                                                               'task deleted');
                                                         }).onError((error,
@@ -430,9 +454,29 @@ class _HomePageState extends State<HomePage> {
                         controller: _searchEditingController,
                         focusNode: _searchFocusNode,
                         autofocus: true,
+                        onChanged: (v) async {
+                          setState(() {
+                            searchTitleIndexList.clear();
+                            titleList.clear();
+                            scrollIndex = 0;
+                          });
+                          await loadTitles();
+                          for (String title in titleList) {
+                            if (title.contains(v) && v.isNotEmpty) {
+                              searchTitleIndexList
+                                  .add(titleList.indexOf(title));
+                            }
+                          }
+                          if (kDebugMode) {
+                            print(
+                                'searchTitleIndexList: $searchTitleIndexList');
+                            print(titleList);
+                          }
+                        },
                         onEditingComplete: () {
                           _searchFocusNode.unfocus();
                           _searchEditingController.text = '';
+                          scrollIndex = 0;
                         },
                         style: GoogleFonts.roboto(
                           fontSize: 18.sp,
@@ -535,12 +579,13 @@ class _HomePageState extends State<HomePage> {
                                               _descriptionEditingController
                                                   .text,
                                           'order': snapshotSize++,
-                                        }).then((value) {
+                                        }).then((value) async {
                                           Navigator.pop(context);
                                           _titleEditingController.text = '';
                                           _descriptionEditingController.text =
                                               '';
                                           toast(context, 'task added');
+                                          await loadTitles();
                                         }).onError((error, stackTrace) {
                                           toast(context, error.toString());
                                         });
@@ -570,150 +615,337 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           body: SafeArea(
-            child: Theme(
-              data: ThemeData(
-                colorScheme: ColorScheme.fromSwatch()
-                    .copyWith(secondary: Colors.blueGrey),
-              ),
-              child: StreamBuilder(
-                  stream: _firestore
-                      .collection('users')
-                      .doc(_auth.currentUser!.email)
-                      .collection('tasks')
-                      .orderBy('order', descending: true)
-                      .snapshots(),
-                  builder: (BuildContext context,
-                      AsyncSnapshot<QuerySnapshot> snapshot) {
-                    if (snapshot.hasData) {
-                      return SizedBox(
-                        width: 375.w,
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 10.h),
-                          child: ListView.builder(
-                            controller: _taskListScrollController,
-                            itemCount: snapshot.data!.size,
-                            itemExtent: 80.h,
-                            addSemanticIndexes: true,
-                            itemBuilder: (context, index) {
-                              QueryDocumentSnapshot document =
-                                  snapshot.data!.docs[index];
-                              snapshotSize = snapshot.data!.size;
-                              return InkWell(
-                                onTap: () {
-                                  _searchFocusNode.unfocus();
-                                  _searchEditingController.text = '';
-                                  if (selectedItems.isNotEmpty) {
-                                    setState(() {
-                                      if (selectedItems.contains(index)) {
-                                        selectedItems.remove(index);
-                                        selectedDocIds.remove(document.id);
-                                      } else {
-                                        selectedItems.add(index);
-                                        selectedDocIds.add(document.id);
-                                      }
-                                    });
-
-                                    if (kDebugMode) {
-                                      print(
-                                          'selectedItems: $selectedItems, selectedDocIds: $selectedDocIds');
-                                    }
-                                  }
-                                },
-                                onLongPress: () {
-                                  _searchFocusNode.unfocus();
-                                  _searchEditingController.text = '';
-                                  setState(() {
-                                    selectedItems.add(index);
-                                    selectedDocIds.add(document.id);
-                                  });
-
-                                  if (kDebugMode) {
-                                    print(
-                                        'selectedItems: $selectedItems, selectedDocIds: $selectedDocIds');
-                                  }
-                                },
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    Padding(
-                                      padding: EdgeInsets.symmetric(
-                                          horizontal: 10.w),
-                                      child: Container(
-                                        height: 50.h,
-                                        width: 300.w,
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 10.w),
-                                        margin:
-                                            EdgeInsets.symmetric(vertical: 5.h),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              blurRadius: 2.r,
-                                              offset: Offset(0, 2),
-                                              color:
-                                                  Colors.black.withOpacity(0.3),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              '${document['title']}',
-                                              style: GoogleFonts.roboto(
-                                                fontSize: 22.sp,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            Text(
-                                              '${document['description']}',
-                                              style: GoogleFonts.roboto(
-                                                fontSize: 18.sp,
-                                                fontWeight: FontWeight.w400,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    Visibility(
-                                      visible: selectedItems.contains(index),
-                                      child: Container(
-                                        height: 50.h,
-                                        width: 375.w,
-                                        color: Colors.black.withOpacity(0.2),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
+            child: Column(
+              children: [
+                Visibility(
+                  visible: searchTitleIndexList.isNotEmpty,
+                  child: Container(
+                    height: 45.h,
+                    width: 375.w,
+                    padding: EdgeInsets.symmetric(horizontal: 10.w),
+                    margin:
+                        EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          blurRadius: 4.r,
+                          spreadRadius: 4.r,
+                          color: Colors.black.withOpacity(0.3),
+                          offset: Offset(3.w, 5.h),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 130.w,
+                          child: Text(
+                            searchTitleIndexList.length > 1
+                                ? '${searchTitleIndexList.length} Matches found'
+                                : '${searchTitleIndexList.length} Match found',
+                            style: GoogleFonts.roboto(
+                              fontSize: 14.sp,
+                              color: Colors.blueGrey,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      );
-                    } else if (snapshot.connectionState ==
-                        ConnectionState.waiting) {
-                      return Center(
-                        child: CircularProgressIndicator(),
-                      );
-                    } else {
-                      toast(context, 'something went wrong!');
-                      return Text(
-                        'Something went wrong, pleaser try again later!',
-                        style: GoogleFonts.roboto(
-                          fontSize: 21.sp,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.black,
+                        Spacer(),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              scrollIndex = 0;
+                            });
+
+                            scrollControl();
+
+                            if (kDebugMode) {
+                              print('first button pressed');
+                            }
+                          },
+                          child: SizedBox(
+                            height: 30.h,
+                            child: Icon(
+                              Icons.arrow_upward,
+                              size: 25.sp,
+                            ),
+                          ),
                         ),
-                      );
-                    }
-                  }),
+                        SizedBox(width: 10.w),
+                        GestureDetector(
+                          onTap: () {
+                            if (scrollIndex > 0) {
+                              setState(() {
+                                scrollIndex--;
+                              });
+                            }
+
+                            scrollControl();
+
+                            if (kDebugMode) {
+                              print('previous button pressed');
+                            }
+                          },
+                          child: SizedBox(
+                            height: 30.h,
+                            child: Icon(
+                              Icons.expand_less,
+                              size: 25.sp,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 5.w),
+                        SizedBox(
+                          width: 40.w,
+                          child: Text(
+                            '${scrollIndex + 1} / ${searchTitleIndexList.length}',
+                            style: GoogleFonts.roboto(
+                              fontSize: 14.sp,
+                              color: Colors.blueGrey,
+                            ),
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        SizedBox(width: 5.w),
+                        GestureDetector(
+                          onTap: () {
+                            if (scrollIndex < searchTitleIndexList.length - 1) {
+                              setState(() {
+                                scrollIndex++;
+                              });
+                            }
+
+                            scrollControl();
+
+                            if (kDebugMode) {
+                              print('next button pressed');
+                            }
+                          },
+                          behavior: HitTestBehavior.translucent,
+                          child: SizedBox(
+                            height: 30.h,
+                            child: Icon(
+                              Icons.expand_more,
+                              size: 25.sp,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 10.w),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              scrollIndex = searchTitleIndexList.length - 1;
+                            });
+
+                            scrollControl();
+
+                            if (kDebugMode) {
+                              print('last button pressed');
+                            }
+                          },
+                          behavior: HitTestBehavior.translucent,
+                          child: SizedBox(
+                            height: 30.h,
+                            child: Icon(
+                              Icons.arrow_downward,
+                              size: 25.sp,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 10.w),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              searchTitleIndexList.clear();
+                              scrollIndex = 0;
+                            });
+
+                            if (kDebugMode) {
+                              print('close button pressed');
+                            }
+                          },
+                          behavior: HitTestBehavior.translucent,
+                          child: SizedBox(
+                            height: 30.h,
+                            child: Icon(
+                              Icons.close,
+                              size: 25.sp,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Theme(
+                    data: ThemeData(
+                      colorScheme: ColorScheme.fromSwatch()
+                          .copyWith(secondary: Colors.blueGrey),
+                    ),
+                    child: StreamBuilder(
+                        stream: _firestore
+                            .collection('users')
+                            .doc(_auth.currentUser!.email)
+                            .collection('tasks')
+                            .orderBy('order', descending: true)
+                            .snapshots(),
+                        builder: (BuildContext context,
+                            AsyncSnapshot<QuerySnapshot> snapshot) {
+                          if (snapshot.hasData) {
+                            return SizedBox(
+                              width: 375.w,
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 10.h),
+                                child: ListView.builder(
+                                  controller: _taskListScrollController,
+                                  itemCount: snapshot.data!.size,
+                                  itemExtent: 80.h,
+                                  addSemanticIndexes: true,
+                                  itemBuilder: (context, index) {
+                                    QueryDocumentSnapshot document =
+                                        snapshot.data!.docs[index];
+                                    snapshotSize = snapshot.data!.size;
+                                    return InkWell(
+                                      onTap: () {
+                                        _searchFocusNode.unfocus();
+                                        _searchEditingController.text = '';
+                                        scrollIndex = 0;
+                                        if (selectedItems.isNotEmpty) {
+                                          setState(() {
+                                            if (selectedItems.contains(index)) {
+                                              selectedItems.remove(index);
+                                              selectedDocIds
+                                                  .remove(document.id);
+                                            } else {
+                                              selectedItems.add(index);
+                                              selectedDocIds.add(document.id);
+                                            }
+                                          });
+
+                                          if (kDebugMode) {
+                                            print(
+                                                'selectedItems: $selectedItems, selectedDocIds: $selectedDocIds');
+                                          }
+                                        }
+                                      },
+                                      onLongPress: () {
+                                        _searchFocusNode.unfocus();
+                                        _searchEditingController.text = '';
+                                        scrollIndex = 0;
+                                        setState(() {
+                                          selectedItems.add(index);
+                                          selectedDocIds.add(document.id);
+                                        });
+
+                                        if (kDebugMode) {
+                                          print(
+                                              'selectedItems: $selectedItems, selectedDocIds: $selectedDocIds');
+                                        }
+                                      },
+                                      child: Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          Padding(
+                                            padding: EdgeInsets.symmetric(
+                                                horizontal: 10.w),
+                                            child: Container(
+                                              height: 50.h,
+                                              width: 300.w,
+                                              padding: EdgeInsets.symmetric(
+                                                  horizontal: 10.w),
+                                              margin: EdgeInsets.symmetric(
+                                                  vertical: 5.h),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    blurRadius: 2.r,
+                                                    offset: Offset(0, 2),
+                                                    color: Colors.black
+                                                        .withOpacity(0.3),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Text(
+                                                    '${document['title']}',
+                                                    style: GoogleFonts.roboto(
+                                                      fontSize: 22.sp,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      backgroundColor:
+                                                          searchTitleIndexList
+                                                                  .contains(snapshot
+                                                                          .data!
+                                                                          .size -
+                                                                      index -
+                                                                      1)
+                                                              ? Colors.amber
+                                                              : Colors
+                                                                  .transparent,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                  Text(
+                                                    '${document['description']}',
+                                                    style: GoogleFonts.roboto(
+                                                      fontSize: 18.sp,
+                                                      fontWeight:
+                                                          FontWeight.w400,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          Visibility(
+                                            visible:
+                                                selectedItems.contains(index),
+                                            child: Container(
+                                              height: 50.h,
+                                              width: 375.w,
+                                              color:
+                                                  Colors.black.withOpacity(0.2),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            );
+                          } else if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          } else {
+                            toast(context, 'something went wrong!');
+                            return Text(
+                              'Something went wrong, pleaser try again later!',
+                              style: GoogleFonts.roboto(
+                                fontSize: 21.sp,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.black,
+                              ),
+                            );
+                          }
+                        }),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -749,5 +981,28 @@ class _HomePageState extends State<HomePage> {
       });
       i++;
     }
+  }
+
+  Future loadTitles() async {
+    await _firestore
+        .collection('users')
+        .doc(_auth.currentUser!.email)
+        .collection('tasks')
+        .orderBy('order')
+        .get()
+        .then((snapshot) {
+      for (QueryDocumentSnapshot doc in snapshot.docs) {
+        titleList.add(doc.get('title'));
+      }
+    });
+  }
+
+  scrollControl() {
+    double pos = searchTitleIndexList[scrollIndex] * 80;
+    _taskListScrollController.animateTo(
+      pos.h,
+      duration: Duration(milliseconds: 600),
+      curve: Curves.easeIn,
+    );
   }
 }

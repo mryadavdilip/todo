@@ -18,11 +18,19 @@ class SignupPage extends StatefulWidget {
 class _SignupPageState extends State<SignupPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final TextEditingController _emailEditingController = TextEditingController();
-  final TextEditingController _passwordEditingController =
+  TextEditingController _emailEditingController = TextEditingController();
+  TextEditingController _passwordEditingController = TextEditingController();
+  TextEditingController _confPasswordEditingController =
       TextEditingController();
-  final TextEditingController _confPasswordEditingController =
-      TextEditingController();
+
+  @override
+  void dispose() {
+    _emailEditingController.dispose();
+    _passwordEditingController.dispose();
+    _confPasswordEditingController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

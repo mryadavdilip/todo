@@ -19,7 +19,13 @@ class ResetPasswordPage extends StatefulWidget {
 class _ResetPasswordPageState extends State<ResetPasswordPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final TextEditingController _emailEditingController = TextEditingController();
+  TextEditingController _emailEditingController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailEditingController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
