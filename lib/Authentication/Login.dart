@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:todo/Authentication/ResetPassword.dart';
 import 'package:todo/Authentication/Signup.dart';
 import 'package:todo/CustomWidgets/CustomFormButton.dart';
 import 'package:todo/CustomWidgets/CustomFormTextField.dart';
@@ -64,7 +65,14 @@ class _LoginPageState extends State<LoginPage> {
               ),
               SizedBox(height: 20.h),
               GestureDetector(
-                onTap: () {},
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ResetPasswordPage(),
+                    ),
+                  );
+                },
                 behavior: HitTestBehavior.translucent,
                 child: Text(
                   'Forgot password?',
@@ -83,8 +91,6 @@ class _LoginPageState extends State<LoginPage> {
                   if (_emailEditingController.text.isEmpty ||
                       _passwordEditingController.text.isEmpty) {
                     toast(context, 'all fields required');
-                  } else if (_passwordEditingController.text.length < 6) {
-                    toast(context, 'password length must be atleast 6');
                   } else {
                     try {
                       login(_emailEditingController.text,
