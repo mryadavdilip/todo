@@ -36,6 +36,8 @@ class _HomePageState extends State<HomePage> {
 
   int snapshotSize = 0;
 
+  double taskListItemHeight = 80;
+
   @override
   void initState() {
     loadTitles();
@@ -801,7 +803,7 @@ class _HomePageState extends State<HomePage> {
                                 child: ListView.builder(
                                   controller: _taskListScrollController,
                                   itemCount: snapshot.data!.size,
-                                  itemExtent: 80.h,
+                                  itemExtent: taskListItemHeight.h,
                                   addSemanticIndexes: true,
                                   itemBuilder: (context, index) {
                                     QueryDocumentSnapshot document =
@@ -997,7 +999,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   scrollControl() {
-    double pos = searchTitleIndexList[scrollIndex] * 80;
+    double pos = searchTitleIndexList[scrollIndex] * taskListItemHeight;
     _taskListScrollController.animateTo(
       pos.h,
       duration: Duration(milliseconds: 600),
