@@ -1,15 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:todo/Authentication/ResetPassword.dart';
-import 'package:todo/Authentication/Signup.dart';
+import 'package:todo/Authentication/auth_controller.dart';
 import 'package:todo/CustomWidgets/CustomFormButton.dart';
 import 'package:todo/CustomWidgets/CustomFormTextField.dart';
-import 'package:todo/CustomWidgets/CustomToast.dart';
-import 'package:todo/NavigationPage.dart';
+import 'package:todo/Screens/ResetPassword.dart';
+import 'package:todo/Screens/Signup.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -19,8 +15,6 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   TextEditingController _emailEditingController = TextEditingController();
   TextEditingController _passwordEditingController = TextEditingController();
 
@@ -95,20 +89,9 @@ class _LoginPageState extends State<LoginPage> {
               SizedBox(height: 40.h),
               CustomFormButton(
                 onTap: () {
-                  if (_emailEditingController.text.isEmpty ||
-                      _passwordEditingController.text.isEmpty) {
-                    toast(context, 'all fields required');
-                  } else {
-                    try {
-                      login(_emailEditingController.text,
-                          _passwordEditingController.text);
-                    } catch (e) {
-                      if (kDebugMode) {
-                        print(e);
-                      }
-                      toast(context, e.toString());
-                    }
-                  }
+                  AuthConroller(context: context).loginWithEmaiAndPassword(
+                      _emailEditingController.text,
+                      _passwordEditingController.text);
                 },
                 title: 'Login',
               ),
@@ -149,29 +132,17 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ],
               ),
+              SizedBox(height: 40.h),
+              CustomFormButton(
+                onTap: () {
+                  AuthConroller(context: context).signInWithGoogle();
+                },
+                title: 'Sign in with Google',
+              ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  login(String email, String password) {
-    _auth
-        .signInWithEmailAndPassword(email: email, password: password)
-        .then((credential) {
-      _firestore.collection('users').doc(email).update({
-        'lastLogin':
-            "${DateTime.now().year}/${DateTime.now().month}/${DateTime.now().day}, ${DateTime.now().hour}:${DateTime.now().minute}:${DateTime.now().second}"
-      });
-      Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (context) => NavigationPage(),
-          ),
-          (route) => false);
-    }).onError((error, stackTrace) {
-      toast(context, error.toString());
-    });
   }
 }

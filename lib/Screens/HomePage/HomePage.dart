@@ -4,10 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:todo/Authentication/auth_controller.dart';
 import 'package:todo/CustomWidgets/CustomFormButton.dart';
 import 'package:todo/CustomWidgets/CustomFormTextField.dart';
 import 'package:todo/CustomWidgets/CustomToast.dart';
-import 'package:todo/NavigationPage.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -76,12 +76,10 @@ class _HomePageState extends State<HomePage> {
         }
       },
       child: GestureDetector(
-        onTap: () {
-          FocusManager.instance.primaryFocus?.unfocus();
-          _searchEditingController.text = '';
-        },
+        onTap: () => unfocus(),
         behavior: HitTestBehavior.translucent,
         child: Scaffold(
+          resizeToAvoidBottomInset: true,
           backgroundColor: Colors.blueGrey[100],
           drawer: SafeArea(
             child: Container(
@@ -97,24 +95,7 @@ class _HomePageState extends State<HomePage> {
                       height: 50.h,
                       color: Colors.blueGrey[100],
                       onPressed: () {
-                        _auth.signOut().then(
-                          (v) {
-                            Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => NavigationPage(),
-                                ),
-                                (route) => false);
-                            toast(context, 'logged out successfully');
-                          },
-                        ).onError(
-                          (error, stackTrace) {
-                            toast(
-                              context,
-                              error.toString(),
-                            );
-                          },
-                        );
+                        AuthConroller(context: context).signout();
                       },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -237,13 +218,8 @@ class _HomePageState extends State<HomePage> {
                                                 child: Row(
                                                   children: [
                                                     CustomFormButton(
-                                                      onTap: () {
-                                                        Navigator.pop(context);
-                                                        _titleEditingController
-                                                            .text = '';
-                                                        _descriptionEditingController
-                                                            .text = '';
-                                                      },
+                                                      onTap: () =>
+                                                          cancelEditTask(),
                                                       height: 50,
                                                       width: 120,
                                                       title: 'Cancel',
@@ -251,44 +227,7 @@ class _HomePageState extends State<HomePage> {
                                                     ),
                                                     Spacer(),
                                                     CustomFormButton(
-                                                      onTap: () {
-                                                        _firestore
-                                                            .collection('users')
-                                                            .doc(_auth
-                                                                .currentUser!
-                                                                .email)
-                                                            .collection('tasks')
-                                                            .doc(selectedDocIds[
-                                                                0])
-                                                            .update({
-                                                          'title':
-                                                              _titleEditingController
-                                                                  .text,
-                                                          'description':
-                                                              _descriptionEditingController
-                                                                  .text,
-                                                        }).then((value) async {
-                                                          Navigator.pop(
-                                                              context);
-                                                          _titleEditingController
-                                                              .text = '';
-                                                          _descriptionEditingController
-                                                              .text = '';
-                                                          setState(() {
-                                                            selectedItems
-                                                                .clear();
-                                                            selectedDocIds
-                                                                .clear();
-                                                          });
-                                                          loadTitles();
-                                                          toast(context,
-                                                              'task edited');
-                                                        }).onError((error,
-                                                                stackTrace) {
-                                                          toast(context,
-                                                              error.toString());
-                                                        });
-                                                      },
+                                                      onTap: () => applyEdit(),
                                                       height: 50,
                                                       width: 120,
                                                       title: 'Apply',
@@ -354,9 +293,8 @@ class _HomePageState extends State<HomePage> {
                                             child: Row(
                                               children: [
                                                 CustomFormButton(
-                                                  onTap: () {
-                                                    Navigator.pop(context);
-                                                  },
+                                                  onTap: () =>
+                                                      cancelDeleteTask(),
                                                   height: 50,
                                                   width: 120,
                                                   title: 'Cancel',
@@ -364,52 +302,7 @@ class _HomePageState extends State<HomePage> {
                                                 ),
                                                 Spacer(),
                                                 CustomFormButton(
-                                                  onTap: () {
-                                                    CollectionReference doc =
-                                                        _firestore
-                                                            .collection('users')
-                                                            .doc(_auth
-                                                                .currentUser!
-                                                                .email)
-                                                            .collection(
-                                                                'tasks');
-                                                    try {
-                                                      for (String id
-                                                          in selectedDocIds) {
-                                                        doc
-                                                            .doc(id)
-                                                            .delete()
-                                                            .then(
-                                                                (value) async {
-                                                          setState(() {
-                                                            selectedItems
-                                                                .clear();
-                                                            selectedDocIds
-                                                                .clear();
-                                                          });
-                                                          sortOrder();
-                                                          await loadTitles();
-                                                          setState(() {
-                                                            searchTitleIndexList
-                                                                .clear();
-                                                          });
-                                                          toast(context,
-                                                              'task deleted');
-                                                        }).onError((error,
-                                                                stackTrace) {
-                                                          toast(context,
-                                                              error.toString());
-                                                        });
-                                                      }
-                                                      Navigator.pop(context);
-                                                    } catch (e) {
-                                                      toast(context,
-                                                          e.toString());
-                                                      if (kDebugMode) {
-                                                        print(e);
-                                                      }
-                                                    }
-                                                  },
+                                                  onTap: () => deleteTask(),
                                                   height: 50,
                                                   width: 120,
                                                   title: 'Delete',
@@ -455,25 +348,7 @@ class _HomePageState extends State<HomePage> {
                         controller: _searchEditingController,
                         focusNode: _searchFocusNode,
                         autofocus: true,
-                        onChanged: (v) async {
-                          setState(() {
-                            searchTitleIndexList.clear();
-                            titleList.clear();
-                            scrollIndex = 0;
-                          });
-                          await loadTitles();
-                          for (String title in titleList) {
-                            if (title.contains(v) && v.isNotEmpty) {
-                              searchTitleIndexList
-                                  .add(titleList.indexOf(title));
-                            }
-                          }
-                          if (kDebugMode) {
-                            print(
-                                'searchTitleIndexList: $searchTitleIndexList');
-                            print(titleList);
-                          }
-                        },
+                        onChanged: (v) => onSearchFieldTextChanged(v),
                         onEditingComplete: () {
                           _searchFocusNode.unfocus();
                           _searchEditingController.text = '';
@@ -556,11 +431,7 @@ class _HomePageState extends State<HomePage> {
                                 child: Row(
                                   children: [
                                     CustomFormButton(
-                                      onTap: () {
-                                        Navigator.pop(context);
-                                        _titleEditingController.text = '';
-                                        _descriptionEditingController.text = '';
-                                      },
+                                      onTap: () => cancelAddTask(),
                                       height: 50,
                                       width: 120,
                                       title: 'Cancel',
@@ -568,29 +439,7 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                     Spacer(),
                                     CustomFormButton(
-                                      onTap: () {
-                                        _firestore
-                                            .collection('users')
-                                            .doc(_auth.currentUser!.email)
-                                            .collection('tasks')
-                                            .doc()
-                                            .set({
-                                          'title': _titleEditingController.text,
-                                          'description':
-                                              _descriptionEditingController
-                                                  .text,
-                                          'order': snapshotSize++,
-                                        }).then((value) async {
-                                          Navigator.pop(context);
-                                          _titleEditingController.text = '';
-                                          _descriptionEditingController.text =
-                                              '';
-                                          toast(context, 'task added');
-                                          await loadTitles();
-                                        }).onError((error, stackTrace) {
-                                          toast(context, error.toString());
-                                        });
-                                      },
+                                      onTap: () => addTask(),
                                       height: 50,
                                       width: 120,
                                       title: 'Add',
@@ -654,17 +503,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         Spacer(),
                         GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              scrollIndex = 0;
-                            });
-
-                            scrollControl();
-
-                            if (kDebugMode) {
-                              print('first button pressed');
-                            }
-                          },
+                          onTap: () => searchResultControllerFirst(),
                           child: SizedBox(
                             height: 30.h,
                             child: Icon(
@@ -675,19 +514,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         SizedBox(width: 10.w),
                         GestureDetector(
-                          onTap: () {
-                            if (scrollIndex > 0) {
-                              setState(() {
-                                scrollIndex--;
-                              });
-                            }
-
-                            scrollControl();
-
-                            if (kDebugMode) {
-                              print('previous button pressed');
-                            }
-                          },
+                          onTap: () => searchResultControllerPrevious(),
                           child: SizedBox(
                             height: 30.h,
                             child: Icon(
@@ -711,19 +538,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         SizedBox(width: 5.w),
                         GestureDetector(
-                          onTap: () {
-                            if (scrollIndex < searchTitleIndexList.length - 1) {
-                              setState(() {
-                                scrollIndex++;
-                              });
-                            }
-
-                            scrollControl();
-
-                            if (kDebugMode) {
-                              print('next button pressed');
-                            }
-                          },
+                          onTap: () => searchResultControllerNext(),
                           behavior: HitTestBehavior.translucent,
                           child: SizedBox(
                             height: 30.h,
@@ -735,17 +550,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         SizedBox(width: 10.w),
                         GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              scrollIndex = searchTitleIndexList.length - 1;
-                            });
-
-                            scrollControl();
-
-                            if (kDebugMode) {
-                              print('last button pressed');
-                            }
-                          },
+                          onTap: () => searchResultControllerLast(),
                           behavior: HitTestBehavior.translucent,
                           child: SizedBox(
                             height: 30.h,
@@ -757,16 +562,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         SizedBox(width: 10.w),
                         GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              searchTitleIndexList.clear();
-                              scrollIndex = 0;
-                            });
-
-                            if (kDebugMode) {
-                              print('close button pressed');
-                            }
-                          },
+                          onTap: () => searchResultControllerClose(),
                           behavior: HitTestBehavior.translucent,
                           child: SizedBox(
                             height: 30.h,
@@ -810,42 +606,10 @@ class _HomePageState extends State<HomePage> {
                                         snapshot.data!.docs[index];
                                     snapshotSize = snapshot.data!.size;
                                     return InkWell(
-                                      onTap: () {
-                                        _searchFocusNode.unfocus();
-                                        _searchEditingController.text = '';
-                                        scrollIndex = 0;
-                                        if (selectedItems.isNotEmpty) {
-                                          setState(() {
-                                            if (selectedItems.contains(index)) {
-                                              selectedItems.remove(index);
-                                              selectedDocIds
-                                                  .remove(document.id);
-                                            } else {
-                                              selectedItems.add(index);
-                                              selectedDocIds.add(document.id);
-                                            }
-                                          });
-
-                                          if (kDebugMode) {
-                                            print(
-                                                'selectedItems: $selectedItems, selectedDocIds: $selectedDocIds');
-                                          }
-                                        }
-                                      },
-                                      onLongPress: () {
-                                        _searchFocusNode.unfocus();
-                                        _searchEditingController.text = '';
-                                        scrollIndex = 0;
-                                        setState(() {
-                                          selectedItems.add(index);
-                                          selectedDocIds.add(document.id);
-                                        });
-
-                                        if (kDebugMode) {
-                                          print(
-                                              'selectedItems: $selectedItems, selectedDocIds: $selectedDocIds');
-                                        }
-                                      },
+                                      onTap: () =>
+                                          onTaskTap(index, document.id),
+                                      onLongPress: () =>
+                                          onTaskLongPress(index, document.id),
                                       child: Stack(
                                         fit: StackFit.expand,
                                         children: [
@@ -954,7 +718,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Future sortOrder() async {
+  Future<void> sortOrder() async {
     int i = 0;
     List orderList = [];
     await _firestore
@@ -984,7 +748,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future loadTitles() async {
+  Future<void> loadTitles() async {
     await _firestore
         .collection('users')
         .doc(_auth.currentUser!.email)
@@ -998,12 +762,225 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  scrollControl() {
+  void scroll() {
     double pos = searchTitleIndexList[scrollIndex] * taskListItemHeight;
     _taskListScrollController.animateTo(
       pos.h,
       duration: Duration(milliseconds: 600),
       curve: Curves.easeIn,
     );
+  }
+
+  void unfocus() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _searchEditingController.text = '';
+  }
+
+  void cancelEditTask() {
+    Navigator.pop(context);
+    _titleEditingController.text = '';
+    _descriptionEditingController.text = '';
+  }
+
+  void applyEdit() {
+    _firestore
+        .collection('users')
+        .doc(_auth.currentUser!.email)
+        .collection('tasks')
+        .doc(selectedDocIds[0])
+        .update({
+      'title': _titleEditingController.text,
+      'description': _descriptionEditingController.text,
+    }).then((value) async {
+      Navigator.pop(context);
+      _titleEditingController.text = '';
+      _descriptionEditingController.text = '';
+      setState(() {
+        selectedItems.clear();
+        selectedDocIds.clear();
+      });
+      loadTitles();
+      toast(context, 'task edited');
+    }).onError((error, stackTrace) {
+      toast(context, error.toString());
+    });
+  }
+
+  void deleteTask() {
+    CollectionReference doc = _firestore
+        .collection('users')
+        .doc(_auth.currentUser!.email)
+        .collection('tasks');
+    try {
+      for (String id in selectedDocIds) {
+        doc.doc(id).delete().then((value) async {
+          setState(() {
+            selectedItems.clear();
+            selectedDocIds.clear();
+          });
+          sortOrder();
+          await loadTitles();
+          setState(() {
+            searchTitleIndexList.clear();
+          });
+          toast(context, 'task deleted');
+        }).onError((error, stackTrace) {
+          toast(context, error.toString());
+        });
+      }
+      Navigator.pop(context);
+    } catch (e) {
+      toast(context, e.toString());
+      if (kDebugMode) {
+        print(e);
+      }
+    }
+  }
+
+  void cancelDeleteTask() {
+    Navigator.pop(context);
+  }
+
+  void cancelAddTask() {
+    Navigator.pop(context);
+    _titleEditingController.text = '';
+    _descriptionEditingController.text = '';
+  }
+
+  void addTask() {
+    _firestore
+        .collection('users')
+        .doc(_auth.currentUser!.email)
+        .collection('tasks')
+        .doc()
+        .set({
+      'title': _titleEditingController.text,
+      'description': _descriptionEditingController.text,
+      'order': snapshotSize++,
+    }).then((value) async {
+      Navigator.pop(context);
+      _titleEditingController.text = '';
+      _descriptionEditingController.text = '';
+      toast(context, 'task added');
+      await loadTitles();
+    }).onError((error, stackTrace) {
+      toast(context, error.toString());
+    });
+  }
+
+  void searchResultControllerFirst() {
+    setState(() {
+      scrollIndex = 0;
+    });
+
+    scroll();
+
+    if (kDebugMode) {
+      print('first button pressed');
+    }
+  }
+
+  void searchResultControllerPrevious() {
+    if (scrollIndex > 0) {
+      setState(() {
+        scrollIndex--;
+      });
+    }
+
+    scroll();
+
+    if (kDebugMode) {
+      print('previous button pressed');
+    }
+  }
+
+  void searchResultControllerNext() {
+    if (scrollIndex < searchTitleIndexList.length - 1) {
+      setState(() {
+        scrollIndex++;
+      });
+    }
+
+    scroll();
+
+    if (kDebugMode) {
+      print('next button pressed');
+    }
+  }
+
+  void searchResultControllerLast() {
+    setState(() {
+      scrollIndex = searchTitleIndexList.length - 1;
+    });
+
+    scroll();
+
+    if (kDebugMode) {
+      print('last button pressed');
+    }
+  }
+
+  void searchResultControllerClose() {
+    setState(() {
+      searchTitleIndexList.clear();
+      scrollIndex = 0;
+    });
+
+    if (kDebugMode) {
+      print('close button pressed');
+    }
+  }
+
+  void onTaskTap(int index, String docId) {
+    _searchFocusNode.unfocus();
+    _searchEditingController.text = '';
+    scrollIndex = 0;
+    if (selectedItems.isNotEmpty) {
+      setState(() {
+        if (selectedItems.contains(index)) {
+          selectedItems.remove(index);
+          selectedDocIds.remove(docId);
+        } else {
+          selectedItems.add(index);
+          selectedDocIds.add(docId);
+        }
+      });
+
+      if (kDebugMode) {
+        print('selectedItems: $selectedItems, selectedDocIds: $selectedDocIds');
+      }
+    }
+  }
+
+  void onTaskLongPress(int index, String docId) {
+    _searchFocusNode.unfocus();
+    _searchEditingController.text = '';
+    scrollIndex = 0;
+    setState(() {
+      selectedItems.add(index);
+      selectedDocIds.add(docId);
+    });
+
+    if (kDebugMode) {
+      print('selectedItems: $selectedItems, selectedDocIds: $selectedDocIds');
+    }
+  }
+
+  void onSearchFieldTextChanged(String value) async {
+    setState(() {
+      searchTitleIndexList.clear();
+      titleList.clear();
+      scrollIndex = 0;
+    });
+    await loadTitles();
+    for (String title in titleList) {
+      if (title.contains(value) && value.isNotEmpty) {
+        searchTitleIndexList.add(titleList.indexOf(title));
+      }
+    }
+    if (kDebugMode) {
+      print('searchTitleIndexList: $searchTitleIndexList');
+      print(titleList);
+    }
   }
 }

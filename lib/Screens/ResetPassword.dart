@@ -1,13 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:todo/Authentication/auth_controller.dart';
 import 'package:todo/CustomWidgets/CustomFormButton.dart';
 import 'package:todo/CustomWidgets/CustomFormTextField.dart';
-import 'package:todo/CustomWidgets/CustomToast.dart';
-import 'package:todo/NavigationPage.dart';
 
 class ResetPasswordPage extends StatefulWidget {
   const ResetPasswordPage({Key? key}) : super(key: key);
@@ -17,8 +13,6 @@ class ResetPasswordPage extends StatefulWidget {
 }
 
 class _ResetPasswordPageState extends State<ResetPasswordPage> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   TextEditingController _emailEditingController = TextEditingController();
 
   @override
@@ -62,18 +56,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
               SizedBox(height: 40.h),
               CustomFormButton(
                 onTap: () {
-                  if (_emailEditingController.text.isEmpty) {
-                    toast(context, 'all fields required');
-                  } else {
-                    try {
-                      resetPassword(_emailEditingController.text);
-                    } catch (e) {
-                      if (kDebugMode) {
-                        print(e);
-                      }
-                      toast(context, e.toString());
-                    }
-                  }
+                  AuthConroller(context: context)
+                      .resetPassword(_emailEditingController.text);
                 },
                 title: 'Send Request',
               ),
@@ -99,23 +83,5 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         ),
       ),
     );
-  }
-
-  resetPassword(String email) {
-    _auth.sendPasswordResetEmail(email: email).then((credential) {
-      _firestore.collection('users').doc(email).update({
-        'lastResetRequest':
-            "${DateTime.now().year}/${DateTime.now().month}/${DateTime.now().day}, ${DateTime.now().hour}:${DateTime.now().minute}:${DateTime.now().second}"
-      });
-      Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (context) => NavigationPage(),
-          ),
-          (route) => false);
-      toast(context, 'reset request sent to your email');
-    }).onError((error, stackTrace) {
-      toast(context, error.toString());
-    });
   }
 }
